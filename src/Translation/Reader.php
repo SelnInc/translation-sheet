@@ -96,19 +96,23 @@ class Reader
      * Scan a directory.
      *
      * @param string $path to directory to scan
+     * @param null $locale
      */
-    protected function scanDirectory($path)
+    protected function scanDirectory($path, $locale = null)
     {
         foreach ($this->files->directories($path) as $directory) {
+            $this->scanDirectory($directory, $locale ? $locale : $this->getLocaleFromDirectory($directory));
             if ($this->isVendorDirectory($directory)) {
                 $this->scanVendorDirectory($directory);
             } else {
-                $this->loadTranslationsInDirectory($directory, $this->getLocaleFromDirectory($directory), null);
+                $this->loadTranslationsInDirectory($directory, $locale ? $locale : $this->getLocaleFromDirectory($directory), null);
             }
         }
 
-        foreach ($this->files->files($path) as $file) {
-            $this->loadTranslations($file->getBasename('.json'), '*', '*', $file);
+        if (!$locale) {
+            foreach ($this->files->files($path) as $file) {
+                $this->loadTranslations($file->getBasename('.json'), '*', '*', $file);
+            }
         }
     }
 
@@ -140,11 +144,22 @@ class Reader
             return;
         }
 
+        $test = $this->files->files($directory);
         foreach ($this->files->files($directory) as $file) {
             $info = pathinfo($file);
-            $group = $info['filename'];
+            $group = $this->getGroupPrefix($directory, $locale) . $info['filename'];
             $this->loadTranslations($locale, $group, $namespace, $file);
         }
+    }
+
+    private function getGroupPrefix($directory, $locale)
+    {
+        $dirData = explode("/$locale/", $directory);
+        if (count($dirData) == 2) {
+            return last($dirData) . '/';
+        }
+
+        return null;
     }
 
     /**
